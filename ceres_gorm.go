@@ -28,9 +28,9 @@ type (
 // Open 打开数据库
 func Open(c *Config) (*DB, error) {
 	// 创建DB
-	db, err := gorm.Open(c.dataSource.Drive, c.Url)
+	db, err := gorm.Open(c.Drive, c.Url)
 	if err != nil {
-		c.Logger.Panicd("open "+c.dataSource.Drive+" error", CeresLogger.FieldPkg("ceres-gorm"), CeresLogger.FieldString("url", c.Url), CeresLogger.FieldErr(err))
+		c.Logger.Panicd("open "+c.Drive+" error", CeresLogger.FieldPkg("ceres-gorm"), CeresLogger.FieldString("url", c.Url), CeresLogger.FieldErr(err))
 	}
 	// 日志模式
 	db.LogMode(c.Debug)

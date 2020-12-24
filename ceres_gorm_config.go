@@ -22,6 +22,8 @@ import (
 
 // 定义配置信息
 type Config struct {
+	// 驱动
+	Drive string
 	// 连接字符串
 	Url string
 	// 是否开启debug
@@ -34,8 +36,6 @@ type Config struct {
 	ConnMaxLifetime time.Duration
 	// 日志库
 	Logger CeresLogger.Logger
-	// 数据源
-	dataSource *DataSource
 	// 回调函数
 	callback *CallbackManager
 }
@@ -43,12 +43,13 @@ type Config struct {
 // NewDefaultConfig 创建一个默认的配置
 func NewDefaultConfig() *Config {
 	return &Config{
+		Drive:           "mysql",
 		Url:             "",
 		Debug:           false,
 		MaxIdleConns:    10,
 		MaxOpenConns:    100,
 		ConnMaxLifetime: time.Hour,
-		Logger:          CeresLogger.FrameLogger,
+		Logger:          CeresLogger.FrameLogger.With(CeresLogger.FieldPkg("ceres-gorm")).AddCallerSkip(-1),
 		callback:        newDefaultCallbackManager(),
 	}
 }
@@ -66,13 +67,13 @@ func (c *Config) RegisterCallback(hook string, op string, cb Callback) error {
 
 // Build 构建数据库
 func (c *Config) Build() *DB {
-	// 解析连接字符串
-	if err := c.ParseUrl(); err != nil {
+	db, err := Open(c)
+	if err != nil {
 		c.Logger.Panic(err)
 	}
 
-	db, err := Open(c)
-	if err != nil {
+	// 测试是否连接成功
+	if err := db.DB().Ping(); err != nil {
 		c.Logger.Panic(err)
 	}
 
