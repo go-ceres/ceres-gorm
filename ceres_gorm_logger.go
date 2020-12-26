@@ -16,76 +16,117 @@
 package CeresGorm
 
 import (
-	"database/sql/driver"
+	"context"
 	"fmt"
-	"reflect"
-	"regexp"
+	CeresLogger "github.com/go-ceres/ceres-logger"
+	log "gorm.io/gorm/logger"
+	"gorm.io/gorm/utils"
 	"time"
-	"unicode"
 )
 
 var (
-	sqlRegexp                = regexp.MustCompile(`\?`)
-	numericPlaceHolderRegexp = regexp.MustCompile(`\$\d+`)
+	infoStr      = "%s\n[info] "
+	warnStr      = "%s\n[warn] "
+	errStr       = "%s\n[error] "
+	traceStr     = "%s\n[%.3fms] [rows:%v] %s"
+	traceWarnStr = "%s %s\n[%.3fms] [rows:%v] %s"
+	traceErrStr  = "%s %s\n[%.3fms] [rows:%v] %s"
 )
 
-// 格式化sql
-func FormatSQL(oriSql string, args []interface{}) (sql string) {
-	formattedValues := make([]string, 0)
-	for _, value := range args {
-		indirectValue := reflect.Indirect(reflect.ValueOf(value))
-		if indirectValue.IsValid() {
-			value = indirectValue.Interface()
-			if t, ok := value.(time.Time); ok {
-				formattedValues = append(formattedValues, fmt.Sprintf("'%v'", t.Format("2006-01-02 15:04:05")))
-			} else if b, ok := value.([]byte); ok {
-				if str := string(b); isPrintable(str) {
-					formattedValues = append(formattedValues, fmt.Sprintf("'%v'", str))
-				} else {
-					formattedValues = append(formattedValues, "'<binary>'")
-				}
-			} else if r, ok := value.(driver.Valuer); ok {
-				if value, err := r.Value(); err == nil && value != nil {
-					formattedValues = append(formattedValues, fmt.Sprintf("'%v'", value))
-				} else {
-					formattedValues = append(formattedValues, "NULL")
-				}
-			} else {
-				switch value.(type) {
-				case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64, bool:
-					formattedValues = append(formattedValues, fmt.Sprintf("%v", value))
-				default:
-					formattedValues = append(formattedValues, fmt.Sprintf("'%v'", value))
-				}
-			}
-		} else {
-			formattedValues = append(formattedValues, "NULL")
-		}
-	}
-
-	// differentiate between $n placeholders or else treat like ?
-	if numericPlaceHolderRegexp.MatchString(oriSql) {
-		for index, value := range formattedValues {
-			placeholder := fmt.Sprintf(`\$%d([^\d]|$)`, index+1)
-			sql = regexp.MustCompile(placeholder).ReplaceAllString(oriSql, value+"$1")
-		}
-	} else {
-		formattedValuesLength := len(formattedValues)
-		for index, value := range sqlRegexp.Split(oriSql, -1) {
-			sql += value
-			if index < formattedValuesLength {
-				sql += formattedValues[index]
-			}
-		}
-	}
-	return
+type logger struct {
+	log.Config
+	log                                 CeresLogger.Logger
+	infoStr, warnStr, errStr            string
+	traceStr, traceErrStr, traceWarnStr string
 }
 
-func isPrintable(s string) bool {
-	for _, r := range s {
-		if !unicode.IsPrint(r) {
-			return false
+// 创建日志实例
+func newLog(l CeresLogger.Logger, c log.Config) log.Interface {
+	var (
+		infoStr      = "%s\n[info] "
+		warnStr      = "%s\n[warn] "
+		errStr       = "%s\n[error] "
+		traceStr     = "%s\n[%.3fms] [rows:%v] %s"
+		traceWarnStr = "%s %s\n[%.3fms] [rows:%v] %s"
+		traceErrStr  = "%s %s\n[%.3fms] [rows:%v] %s"
+	)
+
+	if c.Colorful {
+		infoStr = log.Green + "%s\n" + log.Reset + log.Green + "[info] " + log.Reset
+		warnStr = log.BlueBold + "%s\n" + log.Reset + log.Magenta + "[warn] " + log.Reset
+		errStr = log.Magenta + "%s\n" + log.Reset + log.Red + "[error] " + log.Reset
+		traceStr = log.Green + "%s\n" + log.Reset + log.Yellow + "[%.3fms] " + log.BlueBold + "[rows:%v]" + log.Reset + " %s"
+		traceWarnStr = log.Green + "%s " + log.Yellow + "%s\n" + log.Reset + log.RedBold + "[%.3fms] " + log.Yellow + "[rows:%v]" + log.Magenta + " %s" + log.Reset
+		traceErrStr = log.RedBold + "%s " + log.MagentaBold + "%s\n" + log.Reset + log.Yellow + "[%.3fms] " + log.BlueBold + "[rows:%v]" + log.Reset + " %s"
+	}
+
+	return &logger{
+		log:          l,
+		Config:       c,
+		infoStr:      infoStr,
+		warnStr:      warnStr,
+		errStr:       errStr,
+		traceStr:     traceStr,
+		traceWarnStr: traceWarnStr,
+		traceErrStr:  traceErrStr,
+	}
+}
+
+// LogMode log mode
+func (l *logger) LogMode(level log.LogLevel) log.Interface {
+	newlogger := *l
+	newlogger.LogLevel = level
+	return &newlogger
+}
+
+// Info print info
+func (l logger) Info(ctx context.Context, msg string, data ...interface{}) {
+	if l.LogLevel >= log.Info {
+		l.log.Infof(l.infoStr+msg, append([]interface{}{utils.FileWithLineNum()}, data...)...)
+	}
+}
+
+// Warn print warn messages
+func (l logger) Warn(ctx context.Context, msg string, data ...interface{}) {
+	if l.LogLevel >= log.Warn {
+		l.log.Warnf(l.warnStr+msg, append([]interface{}{utils.FileWithLineNum()}, data...)...)
+	}
+}
+
+// Error print error messages
+func (l logger) Error(ctx context.Context, msg string, data ...interface{}) {
+	if l.LogLevel >= log.Error {
+		l.log.Errorf(l.errStr+msg, append([]interface{}{utils.FileWithLineNum()}, data...)...)
+	}
+}
+
+// Trace print sql message
+func (l logger) Trace(ctx context.Context, begin time.Time, fc func() (string, int64), err error) {
+	if l.LogLevel > 0 {
+		elapsed := time.Since(begin)
+		switch {
+		case err != nil && l.LogLevel >= log.Error:
+			sql, rows := fc()
+			if rows == -1 {
+				l.log.Errorf(l.traceErrStr, utils.FileWithLineNum(), err, float64(elapsed.Nanoseconds())/1e6, "-", sql)
+			} else {
+				l.log.Errorf(l.traceErrStr, utils.FileWithLineNum(), err, float64(elapsed.Nanoseconds())/1e6, rows, sql)
+			}
+		case elapsed > l.SlowThreshold && l.SlowThreshold != 0 && l.LogLevel >= log.Warn:
+			sql, rows := fc()
+			slowLog := fmt.Sprintf("SLOW SQL >= %v", l.SlowThreshold)
+			if rows == -1 {
+				l.log.Warnf(l.traceWarnStr, utils.FileWithLineNum(), slowLog, float64(elapsed.Nanoseconds())/1e6, "-", sql)
+			} else {
+				l.log.Warnf(l.traceWarnStr, utils.FileWithLineNum(), slowLog, float64(elapsed.Nanoseconds())/1e6, rows, sql)
+			}
+		case l.LogLevel >= log.Info:
+			sql, rows := fc()
+			if rows == -1 {
+				l.log.Infof(l.traceStr, utils.FileWithLineNum(), float64(elapsed.Nanoseconds())/1e6, "-", sql)
+			} else {
+				l.log.Infof(l.traceStr, utils.FileWithLineNum(), float64(elapsed.Nanoseconds())/1e6, rows, sql)
+			}
 		}
 	}
-	return true
 }

@@ -16,7 +16,10 @@
 package CeresGorm
 
 import (
+	CeresConfig "github.com/go-ceres/ceres-config"
 	"github.com/go-ceres/ceres-logger"
+	"gorm.io/gorm"
+	log "gorm.io/gorm/logger"
 	"time"
 )
 
@@ -25,7 +28,7 @@ type Config struct {
 	// 驱动
 	Drive string
 	// 连接字符串
-	Url string
+	DNS string
 	// 是否开启debug
 	Debug bool
 	// 最大空闲连接数
@@ -36,22 +39,58 @@ type Config struct {
 	ConnMaxLifetime time.Duration
 	// 日志库
 	Logger CeresLogger.Logger
-	// 回调函数
-	callback *CallbackManager
+	// 驱动适配器
+	Dialector Dialector
+	// 日志的配置
+	LogConfig
+	// gorm的配置
+	GormConfig
 }
 
+// 日志配置
+type LogConfig log.Config
+
+// gorm的配置
+type GormConfig gorm.Config
+
 // NewDefaultConfig 创建一个默认的配置
-func NewDefaultConfig() *Config {
+func newDefaultConfig() *Config {
 	return &Config{
 		Drive:           "mysql",
-		Url:             "",
+		DNS:             "",
 		Debug:           false,
 		MaxIdleConns:    10,
 		MaxOpenConns:    100,
 		ConnMaxLifetime: time.Hour,
+		Dialector:       drivers["mysql"](""),
 		Logger:          CeresLogger.FrameLogger.With(CeresLogger.FieldPkg("ceres-gorm")).AddCallerSkip(-1),
-		callback:        newDefaultCallbackManager(),
+		LogConfig:       newDefaultLogConf(),
 	}
+}
+
+// newDefaultLogConf 创建一个默认的日志配置
+func newDefaultLogConf() LogConfig {
+	return LogConfig{
+		SlowThreshold: time.Second, // 慢 SQL 阈值
+		LogLevel:      log.Silent,  // Log level
+		Colorful:      false,       // 禁用彩色打印
+	}
+}
+
+// RawConfig 根据完整key解析配置信息
+func RawConfig(key string) *Config {
+	// 默认的配置
+	conf := newDefaultConfig()
+	// 解析配置信息
+	if err := CeresConfig.Get(key).Scan(conf); err != nil {
+		CeresLogger.FrameLogger.Panicd("scan config", CeresLogger.FieldPkg("ceres-gorm"), CeresLogger.FieldErr(err))
+	}
+	return conf
+}
+
+// ScanConfig 根据配置名解析配置
+func ScanConfig(name string) *Config {
+	return RawConfig("ceres.database." + name)
 }
 
 // WithLogger 设置日志输出库
@@ -60,22 +99,30 @@ func (c *Config) WithLogger(l CeresLogger.Logger) *Config {
 	return c
 }
 
-// RegisterCallback 注册回调函数
-func (c *Config) RegisterCallback(hook string, op string, cb Callback) error {
-	return c.callback.Register(hook, op, cb)
+// WithDriver 设置驱动实例
+func (c *Config) WithDriver(dialect Dialector) *Config {
+	c.Dialector = dialect
+	return c
 }
 
 // Build 构建数据库
 func (c *Config) Build() *DB {
-	db, err := Open(c)
+	// 创建驱动
+	if driver, ok := drivers[c.Drive]; !ok {
+		c.Logger.Panicf("%s driver is not set", driver)
+	} else {
+		c.Dialector = driver(c.DNS)
+	}
+	// 设置日志组件
+	dbLog := newLog(c.Logger, log.Config(c.LogConfig))
+	if c.Debug {
+		dbLog = dbLog.LogMode(log.Silent)
+	}
+	// gorm的配置信息
+	c.GormConfig.Logger = dbLog
+	db, err := Open(c.Dialector, c)
 	if err != nil {
-		c.Logger.Panic(err)
+		c.Logger.Panicd("open gorm", CeresLogger.FieldErr(err), CeresLogger.FieldAny("value", c))
 	}
-
-	// 测试是否连接成功
-	if err := db.DB().Ping(); err != nil {
-		c.Logger.Panic(err)
-	}
-
 	return db
 }

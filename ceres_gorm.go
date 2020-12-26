@@ -16,35 +16,37 @@
 package CeresGorm
 
 import (
-	"github.com/go-ceres/ceres-logger"
-	"github.com/jinzhu/gorm"
+	"gorm.io/gorm"
 )
 
 type (
-	DB       = gorm.DB
-	CallBack = gorm.Callback
+	DB         = gorm.DB
+	Dialector  = gorm.Dialector
+	DriverFunc = func(dns string) Dialector
 )
 
-// Open 打开数据库
-func Open(c *Config) (*DB, error) {
-	// 创建DB
-	db, err := gorm.Open(c.Drive, c.Url)
+// Open 打开链接
+func Open(dialect gorm.Dialector, c *Config) (*DB, error) {
+
+	inner, err := gorm.Open(dialect, (*gorm.Config)(&c.GormConfig))
 	if err != nil {
-		c.Logger.Panicd("open "+c.Drive+" error", CeresLogger.FieldPkg("ceres-gorm"), CeresLogger.FieldString("url", c.Url), CeresLogger.FieldErr(err))
+		return nil, err
 	}
-	// 日志模式
-	db.LogMode(c.Debug)
-	// SetMaxIdleCons 设置连接池中的最大闲置连接数。
-	if c.MaxIdleConns != 0 {
-		db.DB().SetMaxIdleConns(c.MaxIdleConns)
+	// 设置通用配置
+	sqlDb, err := inner.DB()
+	if err != nil {
+		return nil, err
 	}
-	// SetMaxOpenCons 设置数据库的最大连接数量。
-	if c.MaxOpenConns != 0 {
-		db.DB().SetMaxOpenConns(c.MaxOpenConns)
-	}
-	// SetConnMaxLifetiment 设置连接的最大可复用时间。
+	// 设置连接数
+	sqlDb.SetMaxIdleConns(c.MaxIdleConns)
+	sqlDb.SetMaxOpenConns(c.MaxOpenConns)
+	// 设置连接存活时长
 	if c.ConnMaxLifetime != 0 {
-		db.DB().SetConnMaxLifetime(c.ConnMaxLifetime)
+		sqlDb.SetConnMaxLifetime(c.ConnMaxLifetime)
 	}
-	return db, nil
+	// 测试是否能连通
+	if err := sqlDb.Ping(); err != nil {
+		return nil, err
+	}
+	return inner, nil
 }
