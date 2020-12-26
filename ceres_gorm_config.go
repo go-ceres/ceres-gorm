@@ -41,14 +41,21 @@ type Config struct {
 	Logger CeresLogger.Logger
 	// 驱动适配器
 	Dialector Dialector
-	// 日志的配置
+	// 日志配置
 	LogConfig
 	// gorm的配置
 	GormConfig
 }
 
 // 日志配置
-type LogConfig log.Config
+type LogConfig struct {
+	// 慢日志阈值
+	SlowThreshold time.Duration
+	// 是否开启日志颜色区别
+	Colorful bool
+	// 日志等级
+	LogLevel string
+}
 
 // gorm的配置
 type GormConfig gorm.Config
@@ -64,13 +71,17 @@ func newDefaultConfig() *Config {
 		ConnMaxLifetime: time.Hour,
 		Dialector:       drivers["mysql"](""),
 		Logger:          CeresLogger.FrameLogger.With(CeresLogger.FieldPkg("ceres-gorm")).AddCallerSkip(-1),
-		LogConfig:       newDefaultLogConf(),
+		LogConfig: LogConfig{
+			SlowThreshold: time.Second,
+			Colorful:      false,
+			LogLevel:      "",
+		},
 	}
 }
 
 // newDefaultLogConf 创建一个默认的日志配置
-func newDefaultLogConf() LogConfig {
-	return LogConfig{
+func newDefaultLogConf() log.Config {
+	return log.Config{
 		SlowThreshold: time.Second, // 慢 SQL 阈值
 		LogLevel:      log.Silent,  // Log level
 		Colorful:      false,       // 禁用彩色打印
@@ -113,16 +124,30 @@ func (c *Config) Build() *DB {
 	} else {
 		c.Dialector = driver(c.DNS)
 	}
-	// 设置日志组件
-	dbLog := newLog(c.Logger, log.Config(c.LogConfig))
-	if c.Debug {
-		dbLog = dbLog.LogMode(log.Silent)
-	}
-	// gorm的配置信息
-	c.GormConfig.Logger = dbLog
+	// 初始化日志
+	c.initLogger()
+	// 数据库
 	db, err := Open(c.Dialector, c)
 	if err != nil {
 		c.Logger.Panicd("open gorm", CeresLogger.FieldErr(err), CeresLogger.FieldAny("value", c))
 	}
 	return db
+}
+
+// initLogger 初始化日志
+func (c *Config) initLogger() {
+	// 默认日志配置
+	logConf := newDefaultLogConf()
+	// 转换等级
+	if c.LogLevel != "" {
+		logConf.LogLevel = ConvertLevel(c.LogLevel)
+	}
+	logConf.Colorful = c.Colorful
+	logConf.SlowThreshold = c.SlowThreshold
+	dbLog := newLog(c.Logger, logConf)
+	if c.Debug {
+		dbLog = dbLog.LogMode(log.Info)
+	}
+	// gorm的配置信息
+	c.GormConfig.Logger = dbLog
 }

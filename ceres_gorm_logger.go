@@ -40,6 +40,19 @@ type logger struct {
 	traceStr, traceErrStr, traceWarnStr string
 }
 
+// 字符串转等级数值
+func ConvertLevel(level string) log.LogLevel {
+	switch level {
+	case "info", "INFO":
+		return 4
+	case "warn", "WARN":
+		return 3
+	case "error", "ERROR":
+		return 2
+	}
+	return 1
+}
+
 // 创建日志实例
 func newLog(l CeresLogger.Logger, c log.Config) log.Interface {
 	var (
