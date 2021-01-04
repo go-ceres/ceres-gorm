@@ -9,10 +9,10 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/fatih/color v1.10.0 h1:s36xzo75JdqLaaWoiEHk767eHiwo0598uUxyfiPkDsg=
 github.com/fatih/color v1.10.0/go.mod h1:ELkj/draVOlAH/xkhN6mQ50Qd0MPOk5AAr3maGEBuJM=
-github.com/go-ceres/ceres-config v1.0.0-beta.2 h1:yD14LNWkofm+m3Em7GwgB6qVrFtNwRqWg4smuetUqtk=
-github.com/go-ceres/ceres-config v1.0.0-beta.2/go.mod h1:q+s6gJHd2QjBDGZ9bQ2hE5njziHUjpa0lKmKc3KVTDY=
-github.com/go-ceres/ceres-logger v1.0.0-beta.3 h1:s5aZr1EYil+qz4G5QYaP1wxcYhe0edXTAqDSpOuOPT8=
-github.com/go-ceres/ceres-logger v1.0.0-beta.3/go.mod h1:aV7C4rXi2ya6YRL+tmaTpgoJjBUCstV5mD3ypfnCqHE=
+github.com/go-ceres/ceres-config v1.0.2 h1:+9kc7KfeCLzogG5If4h9SWZU9qgm6CVexzZjb7uE+ZQ=
+github.com/go-ceres/ceres-config v1.0.2/go.mod h1:q+s6gJHd2QjBDGZ9bQ2hE5njziHUjpa0lKmKc3KVTDY=
+github.com/go-ceres/ceres-logger v1.0.2 h1:xrTTJzRwYgB15kuXNO1POTs3BdDOX39Pn+TTqMY3lnY=
+github.com/go-ceres/ceres-logger v1.0.2/go.mod h1:my/mXZdDdXUwD24xikgklghAOXvk9QRUH0K1tw5h/5E=
 github.com/go-sql-driver/mysql v1.5.0 h1:ozyZYNQW3x3HtqT1jira07DN2PArx2v7/mN66gGcHOs=
 github.com/go-sql-driver/mysql v1.5.0/go.mod h1:DCzpHaOWr8IXmIStZouvnhqoel9Qv2LBy8hT2VhHyBg=
 github.com/google/renameio v0.1.0/go.mod h1:KWCgfxg9yswjAJkECMjeO8J8rahYeXnNhOm40UhjYkI=
