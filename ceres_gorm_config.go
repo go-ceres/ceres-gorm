@@ -70,7 +70,7 @@ func newDefaultConfig() *Config {
 		MaxOpenConns:    100,
 		ConnMaxLifetime: time.Hour,
 		Dialector:       drivers["mysql"](""),
-		Logger:          CeresLogger.FrameLogger.With(CeresLogger.FieldPkg("ceres-gorm")).AddCallerSkip(-1),
+		Logger:          CeresLogger.FrameLogger.With(CeresLogger.FieldMod("ceres-gorm")).AddCallerSkip(-1),
 		LogConfig: LogConfig{
 			SlowThreshold: time.Second,
 			Colorful:      false,
@@ -94,7 +94,7 @@ func RawConfig(key string) *Config {
 	conf := newDefaultConfig()
 	// 解析配置信息
 	if err := CeresConfig.Get(key).Scan(conf); err != nil {
-		CeresLogger.FrameLogger.Panicd("scan config", CeresLogger.FieldPkg("ceres-gorm"), CeresLogger.FieldErr(err))
+		CeresLogger.FrameLogger.Panicd("scan config", CeresLogger.FieldMod("ceres-gorm"), CeresLogger.FieldErr(err))
 	}
 	return conf
 }
